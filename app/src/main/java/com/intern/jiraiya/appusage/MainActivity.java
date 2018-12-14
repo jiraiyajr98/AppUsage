@@ -46,6 +46,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     private LayoutInflater mInflater;
     private UsageStatsAdapter mAdapter;
     private PackageManager mPm;
+    static List<UsageStats> stats;
 
 
     @Override
@@ -143,8 +144,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             Calendar cal = Calendar.getInstance();
             cal.add(Calendar.DAY_OF_YEAR, -5);
 
-            final List<UsageStats> stats =
-                    mUsageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST,
+            stats = mUsageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_WEEKLY,
                             cal.getTimeInMillis(), System.currentTimeMillis());
 
             if (stats == null) {
@@ -155,9 +155,10 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     Log.d(TAG,"---------------------------------------------------------------------------");
                     Log.d(TAG, st.getPackageName());
                     Log.d(TAG, "FirstTimeStamp "+new Date(st.getFirstTimeStamp()));
+                    Log.d(TAG, "FirstTimeStamp2 "+ DateUtils.formatDateTime(MainActivity.this,st.getFirstTimeStamp(),2));
                     Log.d(TAG, "LastTimeStamp "+new Date(st.getLastTimeStamp()));
-                   // Log.d(TAG, "LastTimeUsed "+new Date(st.getLastTimeUsed()));
-                  //  Log.d(TAG, "TotalTimeInForeground "+new Date(st.getTotalTimeInForeground()));
+                    Log.d(TAG, "LastTimeUsed "+new Date(st.getLastTimeUsed()));
+                    Log.d(TAG, "TotalTimeInForeground "+DateUtils.formatElapsedTime(st.getTotalTimeInForeground()/1000));
                     Log.d(TAG,"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
                 }
 
@@ -174,16 +175,16 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     String label = appInfo.loadLabel(mPm).toString();
                     mAppLabelMap.put(pkgStats.getPackageName(), label);
 
-                    Log.d(TAG,"---------------------------------------------------------------------------");
-                    Log.d(TAG,label+" = "+pkgStats.getPackageName());
-                    Log.d(TAG,label+" DescribeContents = "+pkgStats.describeContents());
-                    Log.d(TAG, label+" FirstTimeStamp "+new Date(pkgStats.getFirstTimeStamp()));
-                    Log.d(TAG, label+" LastTimeStamp "+new Date(pkgStats.getLastTimeStamp()));
+                  //  Log.d(TAG,"---------------------------------------------------------------------------");
+                 //   Log.d(TAG,label+" = "+pkgStats.getPackageName());
+                 //   Log.d(TAG,label+" DescribeContents = "+pkgStats.describeContents());
+                 //   Log.d(TAG, label+" FirstTimeStamp "+new Date(pkgStats.getFirstTimeStamp()));
+                //    Log.d(TAG, label+" LastTimeStamp "+new Date(pkgStats.getLastTimeStamp()));
                   //  Log.d(TAG, label+" LastTimeUsed "+new Date(pkgStats.getLastTimeUsed()));
                  //   Log.d(TAG, label+" TotalTimeInForeground "+new Date(pkgStats.getTotalTimeInForeground()));
 
 
-                    Log.d(TAG,"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                  //  Log.d(TAG,"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
 
                     UsageStats existingStats =
                             map.get(pkgStats.getPackageName());
@@ -223,7 +224,9 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         public View getView(int position, View convertView, ViewGroup parent) {
             // A ViewHolder keeps references to children views to avoid unneccessary calls
             // to findViewById() on each row.
-            AppViewHolder holder;
+            final AppViewHolder holder;
+
+
 
             // When convertView is not null, we can reuse it directly, there is no need
             // to reinflate it. We only inflate a new View when the convertView supplied
@@ -238,6 +241,16 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                 holder.lastTimeUsed = (TextView) convertView.findViewById(R.id.last_time_used);
                 holder.usageTime = (TextView) convertView.findViewById(R.id.usage_time);
                 holder.icon =(ImageView)convertView.findViewById(R.id.img);
+
+                holder.icon.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Intent goTest = new Intent(MainActivity.this,TestActivity.class);
+                        goTest.putExtra("PKG_NAME",holder.pkgName.getText().toString());
+                        startActivity(goTest);
+                    }
+                });
+
                 convertView.setTag(holder);
             } else {
                 // Get the ViewHolder back to get fast access to the TextView
@@ -258,7 +271,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                 {
                     e.printStackTrace();
                 }
-                holder.pkgName.setText(label);
+                holder.pkgName.setText(pkgStats.getPackageName());
                 holder.lastTimeUsed.setText(DateUtils.formatSameDayTime(pkgStats.getLastTimeUsed(),
                         System.currentTimeMillis(), DateFormat.MEDIUM, DateFormat.MEDIUM));
                 holder.usageTime.setText(

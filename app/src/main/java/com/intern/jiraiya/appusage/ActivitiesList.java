@@ -17,4 +17,12 @@ public class ActivitiesList {
     public String getTime() {
         return time;
     }
+
+    public void setApp_name(String app_name) {
+        this.app_name = app_name;
+    }
+
+    public void setTime(String time) {
+        this.time = time;
+    }
 }
