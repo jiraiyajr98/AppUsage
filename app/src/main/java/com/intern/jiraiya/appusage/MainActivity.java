@@ -24,6 +24,8 @@ import android.widget.ListView;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import org.w3c.dom.Text;
+
 import java.util.Date;
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -58,8 +60,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         mInflater = (LayoutInflater)getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         mPm = getPackageManager();
 
-        Spinner typeSpinner = (Spinner) findViewById(R.id.typeSpinner);
-        typeSpinner.setOnItemSelectedListener(this);
 
         ListView listView = (ListView) findViewById(R.id.pkg_list);
         mAdapter = new UsageStatsAdapter();
@@ -124,6 +124,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         TextView lastTimeUsed;
         TextView usageTime;
         ImageView icon;
+        TextView name;
     }
 
     class UsageStatsAdapter extends BaseAdapter {
@@ -144,8 +145,8 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             Calendar cal = Calendar.getInstance();
             cal.add(Calendar.DAY_OF_YEAR, -5);
 
-            stats = mUsageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_WEEKLY,
-                            cal.getTimeInMillis(), System.currentTimeMillis());
+            stats = mUsageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST,
+                            0, System.currentTimeMillis());
 
             if (stats == null) {
                 return;
@@ -174,17 +175,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     ApplicationInfo appInfo = mPm.getApplicationInfo(pkgStats.getPackageName(), 0);
                     String label = appInfo.loadLabel(mPm).toString();
                     mAppLabelMap.put(pkgStats.getPackageName(), label);
-
-                  //  Log.d(TAG,"---------------------------------------------------------------------------");
-                 //   Log.d(TAG,label+" = "+pkgStats.getPackageName());
-                 //   Log.d(TAG,label+" DescribeContents = "+pkgStats.describeContents());
-                 //   Log.d(TAG, label+" FirstTimeStamp "+new Date(pkgStats.getFirstTimeStamp()));
-                //    Log.d(TAG, label+" LastTimeStamp "+new Date(pkgStats.getLastTimeStamp()));
-                  //  Log.d(TAG, label+" LastTimeUsed "+new Date(pkgStats.getLastTimeUsed()));
-                 //   Log.d(TAG, label+" TotalTimeInForeground "+new Date(pkgStats.getTotalTimeInForeground()));
-
-
-                  //  Log.d(TAG,"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
 
                     UsageStats existingStats =
                             map.get(pkgStats.getPackageName());
@@ -222,39 +212,40 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            // A ViewHolder keeps references to children views to avoid unneccessary calls
-            // to findViewById() on each row.
+
             final AppViewHolder holder;
 
-
-
-            // When convertView is not null, we can reuse it directly, there is no need
-            // to reinflate it. We only inflate a new View when the convertView supplied
-            // by ListView is null.
             if (convertView == null) {
                 convertView = mInflater.inflate(R.layout.usage_stats_item, null);
 
-                // Creates a ViewHolder and store references to the two children views
-                // we want to bind data to.
                 holder = new AppViewHolder();
-                holder.pkgName = (TextView) convertView.findViewById(R.id.package_name);
+                holder.pkgName = (TextView) convertView.findViewById(R.id.pkg_name);
                 holder.lastTimeUsed = (TextView) convertView.findViewById(R.id.last_time_used);
                 holder.usageTime = (TextView) convertView.findViewById(R.id.usage_time);
                 holder.icon =(ImageView)convertView.findViewById(R.id.img);
+                holder.name = (TextView)convertView.findViewById(R.id.name);
 
-                holder.icon.setOnClickListener(new View.OnClickListener() {
+                convertView.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
+
                         Intent goTest = new Intent(MainActivity.this,TestActivity.class);
                         goTest.putExtra("PKG_NAME",holder.pkgName.getText().toString());
                         startActivity(goTest);
                     }
                 });
 
+
+
+                holder.icon.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+
+                    }
+                });
+
                 convertView.setTag(holder);
             } else {
-                // Get the ViewHolder back to get fast access to the TextView
-                // and the ImageView.
                 holder = (AppViewHolder) convertView.getTag();
             }
 
@@ -271,6 +262,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                 {
                     e.printStackTrace();
                 }
+                holder.name.setText(label);
                 holder.pkgName.setText(pkgStats.getPackageName());
                 holder.lastTimeUsed.setText(DateUtils.formatSameDayTime(pkgStats.getLastTimeUsed(),
                         System.currentTimeMillis(), DateFormat.MEDIUM, DateFormat.MEDIUM));
@@ -282,14 +274,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             return convertView;
         }
 
-        void sortList(int sortOrder) {
-            if (mDisplayOrder == sortOrder) {
-                // do nothing
-                return;
-            }
-            mDisplayOrder= sortOrder;
-            sortList();
-        }
         private void sortList() {
             if (mDisplayOrder == _DISPLAY_ORDER_USAGE_TIME) {
                 if (localLOGV) Log.i(TAG, "Sorting by usage time");
