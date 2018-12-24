@@ -9,46 +9,50 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.provider.Settings;
+import android.support.design.widget.TabLayout;
+import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.text.format.DateUtils;
-import android.util.ArrayMap;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.AdapterView;
-import android.widget.BaseAdapter;
-import android.widget.ImageView;
-import android.widget.ListView;
+import android.widget.ArrayAdapter;
 import android.widget.Spinner;
-import android.widget.TextView;
-
-import org.w3c.dom.Text;
-
+import android.widget.Toast;
+import java.sql.Timestamp;
 import java.util.Date;
-import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
+
 
 import static android.app.AppOpsManager.OPSTR_GET_USAGE_STATS;
 import static android.os.Process.myUid;
 import static android.support.v4.app.AppOpsManagerCompat.MODE_ALLOWED;
 
 
-public class MainActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener {
+public class MainActivity extends AppCompatActivity
+//        implements AdapterView.OnItemSelectedListener
+{
 
     public static final String TAG = "App_Usage";
-    private static final boolean localLOGV = false;
-    private UsageStatsManager mUsageStatsManager;
-    private LayoutInflater mInflater;
-    private UsageStatsAdapter mAdapter;
-    private PackageManager mPm;
-    static List<UsageStats> stats;
+//    private static final boolean localLOGV = false;
+    public static UsageStatsManager mUsageStatsManager;
+   // private LayoutInflater mInflater;
+  //  private UsageStatsAdapter mAdapter;
+  //  private PackageManager mPm;
+    private MyUsageStats usage;
+    public static List<UsageStats> stats;
+    List<UsageStats> list = new ArrayList<>();
+
+    //private ViewPager viewPager;
+     RecyclerView recyclerView ;
+     ActivitiesAdapter adapter;
+    String[] dates= {"Last 24 hours","Last 48 hours","Last 72 hours","Last 96 hours","Last 120 hours","Average in 7 Days"};
+
 
 
     @Override
@@ -57,13 +61,71 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         setContentView(R.layout.activity_main);
 
         mUsageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
-        mInflater = (LayoutInflater)getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        mPm = getPackageManager();
+     //   mInflater = (LayoutInflater)getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 
 
-        ListView listView = (ListView) findViewById(R.id.pkg_list);
-        mAdapter = new UsageStatsAdapter();
-        listView.setAdapter(mAdapter);
+        recyclerView = (RecyclerView)findViewById(R.id.recycler) ;
+
+        adapter = new ActivitiesAdapter(MainActivity.this,list);
+        recyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this));
+        recyclerView.setAdapter(adapter);
+
+
+    //    ListView listView = (ListView) findViewById(R.id.pkg_list);
+     //   mAdapter = new UsageStatsAdapter();
+     //   listView.setAdapter(mAdapter);
+        getTime(-1,0);
+        getStaticSchedule();
+
+//        int j=0;
+//        for(int i=0; i > -6;i--){
+//            Calendar cal1 = Calendar.getInstance();
+//            Calendar cal2 = Calendar.getInstance();
+//            cal2.add(Calendar.DATE,i-1);
+//            cal1.add(Calendar.DATE,i);
+//            String st1 = cal2.getTime().toString();
+//            String st2 = cal1.getTime().toString();
+//            st1=st1.substring(0,st1.length()-24);
+//            st2=st2.substring(0,st2.length()-24);
+//            Log.d(TAG,"Time "+ st1+" - "+st2);
+//            dates[j] = st1+" - "+st2;
+//            j++;
+//        }
+
+
+
+        Spinner spin = (Spinner) findViewById(R.id.spinner);
+        ArrayAdapter aa = new ArrayAdapter(this,android.R.layout.simple_spinner_item,dates);
+        aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        //Setting the ArrayAdapter data on the Spinner
+        spin.setAdapter(aa);
+
+        spin.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                Toast.makeText(MainActivity.this, "Pos "+position, Toast.LENGTH_SHORT).show();
+
+                if(position == 0)
+                    getTime(-1,0);//21-22
+                else if(position == 1)
+                    getTime(-2,-1);//20-
+                else if(position == 2)
+                    getTime(-3,-2);
+                else if(position == 3)
+                    getTime(-4,-3);
+                else if(position == 4)
+                    getTime(-5,-4);
+                else if(position == 5)
+                    getTime(-7,-7);
+
+
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
 
     }
 
@@ -73,11 +135,81 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
         if(!checkForPermission(MainActivity.this))
             startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
-        else
-            getUsage();
+        else {
+
+            getTime(-1,0);
+        }
     }
 
-    void getUsage(){
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+       clearList();
+    }
+
+    private void getStaticSchedule() {
+
+        usage = new MyUsageStats(MainActivity.this,0,System.currentTimeMillis());
+        stats = usage.getUsageList();
+
+    }
+
+    void clearList(){
+        int size = list.size();
+        list.clear();
+        adapter.notifyItemRangeRemoved(0,size);
+    }
+
+
+    private void getTime(int start,int finish){
+
+        clearList();
+        Calendar cal1 = Calendar.getInstance();
+        Calendar cal2 = Calendar.getInstance();
+
+
+        cal1.add(Calendar.DATE, start);//15
+        cal2.add(Calendar.DATE, finish);//16<-------
+
+
+
+        Log.d(TAG,"Date = "+ cal1.getTime());
+        Date date1 = cal1.getTime();
+        long time1 = date1.getTime();
+        Log.d(TAG,"Timestamp "+new Timestamp(time1).getTime());
+
+        Log.d(TAG,"Date = "+ cal2.getTime());
+        Date date2 = cal2.getTime();
+        long time2 = date2.getTime();
+        Log.d(TAG,"Timestamp "+new Timestamp(time2).getTime());
+
+
+
+        int i=0;
+        MyUsageStats usage2;
+        if(start == -7) {
+            usage2 = new MyUsageStats(MainActivity.this, time1, System.currentTimeMillis());
+        }
+        else
+            usage2 = new MyUsageStats(MainActivity.this, time1, time2);
+
+        for(android.app.usage.UsageStats st: usage2.getPkArray()) {
+
+            list.add(st);
+            adapter.notifyItemInserted(i);
+            i++;
+
+            Log.d(TAG,"---------------------------------------------------------------------------");
+            Log.d(TAG, st.getPackageName());
+            Log.d(TAG, "FirstTimeStamp N "+new Date(st.getFirstTimeStamp()));
+            Log.d(TAG, "FirstTimeStamp N "+ DateUtils.formatDateTime(MainActivity.this,st.getFirstTimeStamp(),2));
+            Log.d(TAG, "LastTimeStamp N "+new Date(st.getLastTimeStamp()));
+            Log.d(TAG, "LastTimeUsed N "+new Date(st.getLastTimeUsed()));
+           // Log.d(TAG, "ForegroundTimeUsed N "+new Date(st.getTotalTimeInForeground()));
+            Log.d(TAG, "TotalTimeInForeground N "+DateUtils.formatElapsedTime(st.getTotalTimeInForeground()/1000));
+            Log.d(TAG,"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+        }
 
     }
 
@@ -87,218 +219,5 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         return mode == MODE_ALLOWED;
     }
 
-
-    public static class AppNameComparator implements Comparator<UsageStats> {
-        private Map<String, String> mAppLabelList;
-
-        AppNameComparator(Map<String, String> appList) {
-            mAppLabelList = appList;
-        }
-
-        @Override
-        public final int compare(UsageStats a, UsageStats b) {
-            String alabel = mAppLabelList.get(a.getPackageName());
-            String blabel = mAppLabelList.get(b.getPackageName());
-            return alabel.compareTo(blabel);
-        }
-    }
-
-    public static class LastTimeUsedComparator implements Comparator<UsageStats> {
-        @Override
-        public final int compare(UsageStats a, UsageStats b) {
-            // return by descending order
-            return (int)(b.getLastTimeUsed() - a.getLastTimeUsed());
-        }
-    }
-
-    public static class UsageTimeComparator implements Comparator<UsageStats> {
-        @Override
-        public final int compare(UsageStats a, UsageStats b) {
-            return (int)(b.getTotalTimeInForeground() - a.getTotalTimeInForeground());
-        }
-    }
-
-    // View Holder used when displaying views
-    static class AppViewHolder {
-        TextView pkgName;
-        TextView lastTimeUsed;
-        TextView usageTime;
-        ImageView icon;
-        TextView name;
-    }
-
-    class UsageStatsAdapter extends BaseAdapter {
-        // Constants defining order for display order
-        private static final int _DISPLAY_ORDER_USAGE_TIME = 0;
-        private static final int _DISPLAY_ORDER_LAST_TIME_USED = 1;
-        private static final int _DISPLAY_ORDER_APP_NAME = 2;
-        private String TAG = "UsageStatsAdapter";
-
-        private int mDisplayOrder = _DISPLAY_ORDER_USAGE_TIME;
-        private LastTimeUsedComparator mLastTimeUsedComparator = new LastTimeUsedComparator();
-        private UsageTimeComparator mUsageTimeComparator = new UsageTimeComparator();
-        private AppNameComparator mAppLabelComparator;
-        private final ArrayMap<String, String> mAppLabelMap = new ArrayMap<>();
-        private final ArrayList<UsageStats> mPackageStats = new ArrayList<>();
-
-        UsageStatsAdapter() {
-            Calendar cal = Calendar.getInstance();
-            cal.add(Calendar.DAY_OF_YEAR, -5);
-
-            stats = mUsageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST,
-                            0, System.currentTimeMillis());
-
-            if (stats == null) {
-                return;
-            }
-            else
-                for(UsageStats st: stats) {
-                    Log.d(TAG,"---------------------------------------------------------------------------");
-                    Log.d(TAG, st.getPackageName());
-                    Log.d(TAG, "FirstTimeStamp "+new Date(st.getFirstTimeStamp()));
-                    Log.d(TAG, "FirstTimeStamp2 "+ DateUtils.formatDateTime(MainActivity.this,st.getFirstTimeStamp(),2));
-                    Log.d(TAG, "LastTimeStamp "+new Date(st.getLastTimeStamp()));
-                    Log.d(TAG, "LastTimeUsed "+new Date(st.getLastTimeUsed()));
-                    Log.d(TAG, "TotalTimeInForeground "+DateUtils.formatElapsedTime(st.getTotalTimeInForeground()/1000));
-                    Log.d(TAG,"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-                }
-
-
-            ArrayMap<String, UsageStats> map = new ArrayMap<>();
-
-            final int statCount = stats.size();
-            for (int i = 0; i < statCount; i++) {
-                final android.app.usage.UsageStats pkgStats = stats.get(i);
-
-                // load application labels for each application
-                try {
-                    ApplicationInfo appInfo = mPm.getApplicationInfo(pkgStats.getPackageName(), 0);
-                    String label = appInfo.loadLabel(mPm).toString();
-                    mAppLabelMap.put(pkgStats.getPackageName(), label);
-
-                    UsageStats existingStats =
-                            map.get(pkgStats.getPackageName());
-                    if (existingStats == null) {
-                        map.put(pkgStats.getPackageName(), pkgStats);
-                    } else {
-                        existingStats.add(pkgStats);
-                    }
-
-                } catch (PackageManager.NameNotFoundException e) {
-                    // This package may be gone.
-                }
-            }
-            mPackageStats.addAll(map.values());
-
-            // Sort list
-            mAppLabelComparator = new AppNameComparator(mAppLabelMap);
-            sortList();
-        }
-
-        @Override
-        public int getCount() {
-            return mPackageStats.size();
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return mPackageStats.get(position);
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return position;
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-
-            final AppViewHolder holder;
-
-            if (convertView == null) {
-                convertView = mInflater.inflate(R.layout.usage_stats_item, null);
-
-                holder = new AppViewHolder();
-                holder.pkgName = (TextView) convertView.findViewById(R.id.pkg_name);
-                holder.lastTimeUsed = (TextView) convertView.findViewById(R.id.last_time_used);
-                holder.usageTime = (TextView) convertView.findViewById(R.id.usage_time);
-                holder.icon =(ImageView)convertView.findViewById(R.id.img);
-                holder.name = (TextView)convertView.findViewById(R.id.name);
-
-                convertView.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-
-                        Intent goTest = new Intent(MainActivity.this,TestActivity.class);
-                        goTest.putExtra("PKG_NAME",holder.pkgName.getText().toString());
-                        startActivity(goTest);
-                    }
-                });
-
-
-
-                holder.icon.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-
-                    }
-                });
-
-                convertView.setTag(holder);
-            } else {
-                holder = (AppViewHolder) convertView.getTag();
-            }
-
-            // Bind the data efficiently with the holder
-            UsageStats pkgStats = mPackageStats.get(position);
-            if (pkgStats != null) {
-                String label = mAppLabelMap.get(pkgStats.getPackageName());
-                try
-                {
-                    Drawable icn = getPackageManager().getApplicationIcon(pkgStats.getPackageName());
-                    holder.icon.setImageDrawable(icn);
-                }
-                catch (PackageManager.NameNotFoundException e)
-                {
-                    e.printStackTrace();
-                }
-                holder.name.setText(label);
-                holder.pkgName.setText(pkgStats.getPackageName());
-                holder.lastTimeUsed.setText(DateUtils.formatSameDayTime(pkgStats.getLastTimeUsed(),
-                        System.currentTimeMillis(), DateFormat.MEDIUM, DateFormat.MEDIUM));
-                holder.usageTime.setText(
-                        DateUtils.formatElapsedTime(pkgStats.getTotalTimeInForeground() / 1000));
-            } else {
-                Log.w(TAG, "No usage stats info for package:" + position);
-            }
-            return convertView;
-        }
-
-        private void sortList() {
-            if (mDisplayOrder == _DISPLAY_ORDER_USAGE_TIME) {
-                if (localLOGV) Log.i(TAG, "Sorting by usage time");
-                Collections.sort(mPackageStats, mUsageTimeComparator);
-            } else if (mDisplayOrder == _DISPLAY_ORDER_LAST_TIME_USED) {
-                if (localLOGV) Log.i(TAG, "Sorting by last time used");
-                Collections.sort(mPackageStats, mLastTimeUsedComparator);
-            } else if (mDisplayOrder == _DISPLAY_ORDER_APP_NAME) {
-                if (localLOGV) Log.i(TAG, "Sorting by application name");
-                Collections.sort(mPackageStats, mAppLabelComparator);
-            }
-            notifyDataSetChanged();
-        }
-    }
-
-
-
-    @Override
-    public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-
-    }
-
-    @Override
-    public void onNothingSelected(AdapterView<?> parent) {
-
-    }
 
 }
